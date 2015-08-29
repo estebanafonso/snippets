@@ -48,6 +48,13 @@ def catalog():
     logging.debug("Keyword catalog fetched successfully.")
     return [tup[0] for tup in keywords]
     
+def search(search_term):
+    with connection, connection.cursor() as cursor:
+        cursor.execute("select * from snippets where message like '%{}%'".format(search_term))
+        matches = cursor.fetchall()
+    logging.debug("Matches fetched successfully.")
+    return matches
+    
 def main():
     """Main function"""
     logging.info("Constructing parser")
@@ -61,10 +68,16 @@ def main():
     put_parser.add_argument("name", help="The name of the snippet")
     put_parser.add_argument("snippet", help="The snippet text")
     
+    logging.debug("Constructing get subparser")
     get_parser = subparsers.add_parser("get", help="Retrieve a snipper")
     get_parser.add_argument("name", help="The name of the snippet")
     
+    logging.debug("Constructing catalog subparser")
     catalog_parser = subparsers.add_parser("catalog", help="Catalog keywords")
+    
+    logging.debug("Constructing search subparser")
+    search_parser = subparsers.add_parser("search", help="Search snippet")
+    search_parser.add_argument("search_term", help="The name of the search term")
 
     arguments = parser.parse_args(sys.argv[1:])
     # Convert parsed arguments from Namespace to dictionary
@@ -81,6 +94,10 @@ def main():
     elif command ==  "catalog":
         keywords_catalog = catalog()
         print("Keywords catalog: {!r}".format(keywords_catalog))
+    elif command == "search":
+        matches = search(**arguments)
+        print("Snippets matched: {!r}".format(matches))
+        
 
 if __name__ == "__main__":
     main()
