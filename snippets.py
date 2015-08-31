@@ -10,7 +10,7 @@ logging.debug("Connecting to PostgreSQL")
 connection = psycopg2.connect("dbname='snippets'")
 logging.debug("Database connection established.")
 
-def put(name, snippet):
+def put(name, snippet, hide, unhide):
     """Store a snippet with an associated name."""
     logging.info("Storing snippet {!r}: {!r}".format(name, snippet))
     try:
@@ -22,12 +22,30 @@ def put(name, snippet):
             command = "update snippets set message=%s where keyword=%s"
             cursor.execute(command, (snippet, name))
     logging.debug("Snippet stored successfully.")
+    
+    if hide:
+        logging.info("Hiding {!r}: {!r}".format(name, snippet))
+
+        with connection, connection.cursor() as cursor:
+            command = "update snippets set hidden=TRUE where keyword=%s"
+            cursor.execute(command, (name,))
+            logging.debug("Snippet hidden successfully.")
+            
+            
+    if unhide:
+        logging.info("Unhiding {!r}: {!r}".format(name, snippet))
+
+        with connection, connection.cursor() as cursor:
+            command = "update snippets set hidden=FALSE where keyword=%s"
+            cursor.execute(command, (name,))
+            logging.debug("Snippet unhidden successfully.")
+
     return name, snippet
     
 def get(name):
     """Retrieve the snippet with a given name.
 
-    If there is no such snippet...
+    If there is no such snippet, return None.
 
     Returns the snippet.
     """
@@ -43,14 +61,14 @@ def get(name):
     
 def catalog():
     with connection, connection.cursor() as cursor:
-        cursor.execute("select keyword from snippets order by keyword")
+        cursor.execute("select keyword from snippets where not hidden order by keyword ")
         keywords = cursor.fetchall()
     logging.debug("Keyword catalog fetched successfully.")
     return [tup[0] for tup in keywords]
     
 def search(search_term):
     with connection, connection.cursor() as cursor:
-        cursor.execute("select * from snippets where message like '%{}%'".format(search_term))
+        cursor.execute("select keyword, message from snippets where message like '%{}%' and not hidden".format(search_term))
         matches = cursor.fetchall()
     logging.debug("Matches fetched successfully.")
     return matches
@@ -67,6 +85,8 @@ def main():
     put_parser = subparsers.add_parser("put", help="Store a snippet")
     put_parser.add_argument("name", help="The name of the snippet")
     put_parser.add_argument("snippet", help="The snippet text")
+    put_parser.add_argument("--hide", help="Set hidden flag to true", action="store_true")
+    put_parser.add_argument("--unhide", help="Set hidden flag to false", action="store_true")
     
     logging.debug("Constructing get subparser")
     get_parser = subparsers.add_parser("get", help="Retrieve a snipper")
